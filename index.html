@@ -1,1 +1,894 @@
-<h1>Welcome to my academic page</h1>
+<!DOCTYPE html><html lang="en">
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO</title>
+<!--Generated on Tue Oct  6 23:49:02 2026 by LaTeXML (version 0.8.8) http://dlmf.nist.gov/LaTeXML/.-->
+<!--Document created on 23rd August 2026.-->
+
+<link rel="stylesheet" href="LaTeXML.css" type="text/css">
+<link rel="stylesheet" href="ltx-article.css" type="text/css">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+</head>
+<body>
+<div class="ltx_page_main">
+<div class="ltx_page_content">
+<article class="ltx_document ltx_authors_1line">
+<h1 class="ltx_title ltx_font_bold ltx_title_document">Quantum-Behaved Particle Swarm Optimisation:
+<br class="ltx_break">A Comparative Study with Classical PSO</h1>
+<div class="ltx_authors">
+<span class="ltx_creator ltx_role_author">
+<span class="ltx_personname">Samyak Jain
+<br class="ltx_break"> <span class="ltx_text" style="font-size:90%;">samyak.09jain@gmail.com</span>
+</span></span>
+</div>
+<div class="ltx_dates">(<span class="ltx_text" style="font-size:90%;">23rd August 2026</span>)</div>
+
+<div class="ltx_abstract">
+<h6 class="ltx_title ltx_title_abstract">Abstract</h6>
+<p class="ltx_p">Particle Swarm Optimization (PSO) remains one of the most widely adopted metaheuristic algorithms for continuous optimization, yet its tendency to converge prematurely on complex landscapes motivates the exploration of quantum-inspired variants. This paper presents a comprehensive empirical comparison between Classical PSO and Quantum-behaved PSO (QPSO) using a modular, open-source Python framework supporting three quantum randomness generation modes: a lightweight mathematical simulation, full Qiskit-based quantum circuit execution, and a hybrid approach. We evaluate both algorithms on six standard benchmark functions—Sphere, Rastrigin, Rosenbrock, Ackley, Griewank, and Schwefel—spanning unimodal, multimodal, and valley-shaped landscapes across dimensionalities from 2 to 20. Each configuration is assessed over 50 independent runs with paired random seeds, validated using the Wilcoxon signed-rank test (<span id="m1" class="ltx_Math">\alpha=0.05</span>). Rather than a uniform advantage for either method, our findings reveal a <em class="ltx_emph ltx_font_italic">dimensional crossover</em>: Classical PSO is significantly more accurate on smooth, low-dimensional landscapes, whereas QPSO overtakes it at high dimensionality (<span id="m2" class="ltx_Math">n=20</span>) on the Ackley, Sphere, and deceptive Schwefel functions. Across 24 benchmark–dimensionality combinations, Classical PSO wins 9, QPSO wins 6, and 9 show no significant difference. On the multimodal Rastrigin function, a binary escape-rate analysis shows QPSO reaching the global basin significantly more often at <span id="m3" class="ltx_Math">n=5</span> (41/50 vs. 27/50, Fisher’s exact <span id="m4" class="ltx_Math">p=0.005</span>), directly demonstrating the quantum-tunnelling behaviour that motivates the method. To test whether the choice of randomness source itself affects QPSO’s behaviour, we additionally ran a reduced-grid pilot (3 benchmarks, <span id="m5" class="ltx_Math">n\in\{5,10\}</span>, 20 paired runs, actually executing all three randomness modes via Qiskit’s AerSimulator): math mode significantly outperformed both circuit-based modes in all 6 tested configurations (Wilcoxon <span id="m6" class="ltx_Math">p&lt;0.001</span> throughout), while full and hybrid modes never differed significantly from each other—a preliminary but genuine result, at reduced scale, rather than a claim left untested. The complete framework is released as an open-source package with reproducible pipelines for convergence analysis, statistical testing, and visualization.</p>
+</div>
+<section id="S1" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">
+<span class="ltx_tag ltx_tag_section">1 </span>Introduction</h2>
+
+<div id="S1.p1" class="ltx_para">
+<p class="ltx_p">Many real-world optimisation problems involve complex, high-dimensional objective functions for which gradient information is unavailable or unreliable. Metaheuristic algorithms address this by conducting stochastic, population-based searches that trade global-convergence guarantees for robust, general-purpose exploration. Particle Swarm Optimisation (PSO), introduced by Kennedy and Eberhart <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib1" title="" class="ltx_ref">1</a>]</cite>, is among the most widely used such methods: a population of particles traverses the search space under the influence of personal and swarm-wide historical bests. Subsequent refinements—the inertia weight of Shi and Eberhart <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib2" title="" class="ltx_ref">2</a>]</cite> and the constriction coefficient of Clerc and Kennedy <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib3" title="" class="ltx_ref">3</a>]</cite>—strengthened its theoretical and practical performance.</p>
+</div>
+<div id="S1.p2" class="ltx_para">
+<p class="ltx_p">Despite its success, classical PSO’s velocity-based update can converge prematurely on highly multimodal landscapes such as Rastrigin or Schwefel, where the swarm collapses into a single basin of attraction. Sun, Feng, and Xu proposed Quantum-Behaved PSO (QPSO) <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib4" title="" class="ltx_ref">4</a>]</cite> as a response: particles carry no velocity, and their positions are instead sampled from a distribution derived from a quantum-mechanical potential well, endowing the swarm with a tunnelling capability absent from classical velocity dynamics <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib5" title="" class="ltx_ref">5</a>]</cite>.</p>
+</div>
+<div id="S1.p3" class="ltx_para">
+<p class="ltx_p">The randomness driving both algorithms is conventionally generated by pseudo-random number generators (PRNGs). This raises a natural question: does replacing pseudo-randomness with genuinely quantum-random numbers, now accessible via platforms such as IBM Qiskit, alter QPSO’s search dynamics or solution quality? No prior systematic study has compared QPSO under different randomness sources—classical PRNG, fully quantum, and hybrid—using a unified implementation and rigorous statistical framework.</p>
+</div>
+<div id="S1.p4" class="ltx_para">
+<p class="ltx_p">This work makes four contributions. First, a unified, open-source Python framework implementing both algorithms with three QPSO randomness modes (math, full, and hybrid Qiskit-circuit-based). Second, a benchmark study across six standard test functions at dimensionalities <span id="S1.p4.m1" class="ltx_Math">n\in\{2,5,10,20\}</span>, each evaluated over 50 independent, paired-seed runs. Third, a rigorous statistical comparison using the Wilcoxon signed-rank test, complemented by a Fisher’s-exact escape-rate analysis on the Rastrigin function, to determine whether observed differences are statistically meaningful rather than sampling artefacts. Fourth, rather than leaving the randomness-source question raised above entirely for future work, a reduced-grid pilot (Section 5.4) that actually executes all three randomness modes end-to-end via Qiskit’s AerSimulator, reporting a genuine—if necessarily scaled-down—answer: math mode significantly outperformed both circuit-based modes in every tested configuration.</p>
+</div>
+</section>
+<section id="S2" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">
+<span class="ltx_tag ltx_tag_section">2 </span>Background</h2>
+
+<div id="S2.p1" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Classical PSO.</span> Each particle <span id="S2.p1.m1" class="ltx_Math">i</span> maintains position <span id="S2.p1.m2" class="ltx_Math">x_{i}\in\mathbb{R}^{D}</span> and velocity <span id="S2.p1.m3" class="ltx_Math">v_{i}\in\mathbb{R}^{D}</span>, updated at iteration <span id="S2.p1.m4" class="ltx_Math">t</span> as</p>
+<table id="S2.E1" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E1.m1" class="ltx_Math">v_{i}^{t+1}=w\,v_{i}^{t}+c_{1}r_{1}\odot(\mathrm{pbest}_{i}-x_{i}^{t})+c_{2}r_%
+{2}\odot(\mathrm{gbest}-x_{i}^{t}),\qquad x_{i}^{t+1}=x_{i}^{t}+v_{i}^{t+1},</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(1)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">where <span id="S2.p1.m5" class="ltx_Math">r_{1},r_{2}\sim U(0,1)</span> and <span id="S2.p1.m6" class="ltx_Math">\odot</span> denotes the Hadamard product. The inertia weight <span id="S2.p1.m7" class="ltx_Math">w</span> is linearly decayed,</p>
+<table id="S2.E2" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E2.m1" class="ltx_Math">w(t)=w_{\max}-\tfrac{t}{T}(w_{\max}-w_{\min}),\qquad w_{\max}=0.9,\ w_{\min}=0%
+.4\ \text{\cite[cite]{[\@@bibref{}{shi1998}{}{}]}},</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(2)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">promoting broad early search and later local refinement. We use the constriction-coefficient parameterisation of Clerc and Kennedy <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib3" title="" class="ltx_ref">3</a>]</cite>,</p>
+<table id="S2.E3" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E3.m1" class="ltx_Math">\chi=\frac{2}{\left|2-\varphi-\sqrt{\varphi^{2}-4\varphi}\right|},\qquad%
+\varphi=c_{1}+c_{2}&gt;4,</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(3)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">with <span id="S2.p1.m8" class="ltx_Math">c_{1}=c_{2}=1.494</span>, giving <span id="S2.p1.m9" class="ltx_Math">\varphi\approx 2.988</span> and <span id="S2.p1.m10" class="ltx_Math">\chi\approx 0.7298</span>, and velocity clamping at 20% of the search range to prevent unbounded early-phase velocities.</p>
+</div>
+<div id="S2.p2" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">QPSO.</span> Classical PSO’s trajectory-based updates confine each particle to a path governed by its current velocity, preventing escape from a deep local basin unless stochastic perturbations are large enough to vault the surrounding barrier. QPSO sidesteps this by drawing on the quantum-mechanical picture of a particle bound in a potential well, where the wave function extends beyond the classical turning points with exponentially decaying amplitude. Concretely, consider a particle moving in a one-dimensional delta potential well centred at an attractor point <span id="S2.p2.m1" class="ltx_Math">p</span>; the time-independent Schrödinger equation yields a ground-state wave function <span id="S2.p2.m2" class="ltx_Math">\psi(x)\propto\exp(-|x-p|/L)</span>, so the position probability density <span id="S2.p2.m3" class="ltx_Math">|\psi(x)|^{2}\propto\exp(-2|x-p|/L)</span> is a double-exponential distribution whose characteristic length <span id="S2.p2.m4" class="ltx_Math">L</span> controls how broad (exploratory) or narrow (exploitative) the sampling is. Sampling from this distribution via inverse-transform sampling yields the position update rule at the core of QPSO: particles carry no velocity, and instead each samples a position from a distribution derived from this one-dimensional quantum delta-potential well centred on a stochastic attractor point,</p>
+<table id="S2.E4" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E4.m1" class="ltx_Math">p_{i}=\phi\odot\mathrm{pbest}_{i}+(1-\phi)\odot\mathrm{gbest},\qquad\phi\sim U%
+(0,1)^{D},</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(4)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">where <span id="S2.p2.m5" class="ltx_Math">\phi</span> is a vector of independent uniform random variables on <span id="S2.p2.m6" class="ltx_Math">[0,1]</span>, and the mean best position</p>
+<table id="S2.E5" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E5.m1" class="ltx_Math">\mathrm{mbest}=\tfrac{1}{N}\sum_{j=1}^{N}\mathrm{pbest}_{j}</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(5)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">(the centroid of all personal bests) serves as the swarm’s consensus reference. The quantum displacement and position update are</p>
+<table id="S2.E6" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E6.m1" class="ltx_Math">\delta_{i}=\beta\,|\,\mathrm{mbest}-x_{i}^{t}\,|\odot\ln(1/u),\qquad x_{i}^{t+%
+1}=p_{i}\pm\delta_{i},</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(6)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">with <span id="S2.p2.m7" class="ltx_Math">u\sim U(0,1)^{D}</span> and sign chosen independently per dimension—this binary tunnelling decision is the quantity most naturally suited to quantum-circuit generation (Section 3). The contraction–expansion coefficient <span id="S2.p2.m8" class="ltx_Math">\beta</span> plays a role analogous to inertia, decayed linearly from <span id="S2.p2.m9" class="ltx_Math">\beta_{\max}=1.0</span> to <span id="S2.p2.m10" class="ltx_Math">\beta_{\min}=0.5</span> <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib5" title="" class="ltx_ref">5</a>]</cite>, and temporarily widened by a factor of 1.3 upon stagnation to broaden exploration.</p>
+</div>
+<div id="S2.p3" class="ltx_para">
+<p class="ltx_p">We use the fitness-weighted mean best position of Xi, Sun, and Xu <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib6" title="" class="ltx_ref">6</a>]</cite>,</p>
+<table id="S2.E7" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S2.E7.m1" class="ltx_Math">\mathrm{mbest}_{w}=\sum_{j=1}^{N}w_{j}\,\mathrm{pbest}_{j},\qquad w_{j}=\frac{%
+f_{\max}-f_{j}+\epsilon(f_{\max}-f_{\min})}{\sum_{k=1}^{N}\big{(}f_{\max}-f_{k%
+}+\epsilon(f_{\max}-f_{\min})\big{)}},</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(7)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">which biases the consensus reference toward higher-quality regions—particularly beneficial on curved-valley landscapes such as Rosenbrock, where particles on the valley floor would otherwise be diluted by those still on the surrounding plateau.</p>
+</div>
+<div id="S2.p4" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Benchmark functions.</span> Table <a href="#S2.T1" title="Table 1 ‣ 2 Background ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">1</span></a> summarises the six functions used, spanning unimodal, multimodal, valley-shaped, and deceptive topologies <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib7" title="" class="ltx_ref">7</a>, <a href="#bib.bib8" title="" class="ltx_ref">8</a>, <a href="#bib.bib9" title="" class="ltx_ref">9</a>, <a href="#bib.bib10" title="" class="ltx_ref">10</a>, <a href="#bib.bib11" title="" class="ltx_ref">11</a>]</cite>.</p>
+</div>
+<figure id="S2.T1" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Function</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Landscape type</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Bounds</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S2.T1.m1" class="ltx_Math">x^{*}</span></th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left ltx_border_t"><span class="ltx_text" style="font-size:90%;">Sphere</span></td>
+<td class="ltx_td ltx_align_left ltx_border_t"><span class="ltx_text" style="font-size:90%;">Unimodal, separable</span></td>
+<td class="ltx_td ltx_align_left ltx_border_t"><span id="S2.T1.m2" class="ltx_Math">[-10,10]^{D}</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span id="S2.T1.m3" class="ltx_Math">0</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Rastrigin</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Multimodal, separable</span></td>
+<td class="ltx_td ltx_align_left"><span id="S2.T1.m4" class="ltx_Math">[-5.12,5.12]^{D}</span></td>
+<td class="ltx_td ltx_align_center"><span id="S2.T1.m5" class="ltx_Math">0</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Rosenbrock</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Valley, non-separable</span></td>
+<td class="ltx_td ltx_align_left"><span id="S2.T1.m6" class="ltx_Math">[-2.048,2.048]^{D}</span></td>
+<td class="ltx_td ltx_align_center"><span id="S2.T1.m7" class="ltx_Math">1</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Ackley</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Multimodal, non-separable</span></td>
+<td class="ltx_td ltx_align_left"><span id="S2.T1.m8" class="ltx_Math">[-32.768,32.768]^{D}</span></td>
+<td class="ltx_td ltx_align_center"><span id="S2.T1.m9" class="ltx_Math">0</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Griewank</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:90%;">Multimodal, non-separable</span></td>
+<td class="ltx_td ltx_align_left"><span id="S2.T1.m10" class="ltx_Math">[-600,600]^{D}</span></td>
+<td class="ltx_td ltx_align_center"><span id="S2.T1.m11" class="ltx_Math">0</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left ltx_border_bb"><span class="ltx_text" style="font-size:90%;">Schwefel</span></td>
+<td class="ltx_td ltx_align_left ltx_border_bb"><span class="ltx_text" style="font-size:90%;">Deceptive, separable</span></td>
+<td class="ltx_td ltx_align_left ltx_border_bb"><span id="S2.T1.m12" class="ltx_Math">[-500,500]^{D}</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span id="S2.T1.m13" class="ltx_Math">\approx 420.97</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:90%;"><span class="ltx_tag ltx_tag_table">Table 1: </span>Benchmark functions used in the experimental evaluation.</figcaption>
+</figure>
+</section>
+<section id="S3" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">
+<span class="ltx_tag ltx_tag_section">3 </span>Methodology</h2>
+
+<div id="S3.p1" class="ltx_para">
+<p class="ltx_p">Both algorithms are implemented as self-contained Python classes sharing a common interface: each accepts an objective function, dimensionality, search bounds, and hyperparameters, and returns the best position, best score, and full convergence history. Classical PSO applies a fine-tuning phase in the final 10% of iterations, overriding the inertia weight to a fixed 0.3 and raising both acceleration coefficients to 2.5; by this stage the swarm has typically converged to a small neighbourhood of the best-known solution, so reduced inertia combined with stronger attraction to personal and global bests encourages intensive local search, analogous to switching to a local-search strategy in the terminal phase of a metaheuristic run.</p>
+</div>
+<div id="S3.p2" class="ltx_para">
+<p class="ltx_p">QPSO applies an elitist local refinement every 5 iterations via two complementary strategies. The first is a differential mutation step: two particles are selected at random, and the normalised difference between their personal bests defines a search direction along which the global best is perturbed, with a step size proportional to <span id="S3.p2.m1" class="ltx_Math">\beta</span> and the search range; on valley-type landscapes, particles tend to spread along the ridge, so this differential vector naturally aligns with the valley’s curvature. The second is a coordinate-wise Gaussian perturbation of the global best (standard deviation <span id="S3.p2.m2" class="ltx_Math">\sigma=0.02\,\beta\,(x_{\max}-x_{\min})</span>), accepted only if it improves the objective value. Both strategies are greedy and together compensate for the inherently stochastic, non-directional nature of the quantum position update. A wave-packet momentum term (<span id="S3.p2.m3" class="ltx_Math">\gamma_{d}=0.7</span> decay, <span id="S3.p2.m4" class="ltx_Math">\gamma_{w}=0.1</span> weight) further restores directional persistence that aids valley-following; this is motivated by the observation that the standard QPSO position distribution models only the squared modulus <span id="S3.p2.m5" class="ltx_Math">|\psi|^{2}</span> of the wave function, discarding the momentum information encoded in its phase. Both algorithms share a stagnation detector: if the global best fails to improve by more than <span id="S3.p2.m6" class="ltx_Math">10^{-10}</span> for 20 consecutive iterations, the worst 30% of particles (ranked by personal-best fitness) are re-initialised within a 15% neighbourhood of the current global best, with their personal bests reset to infinity—providing a weak convergence guarantee, since the swarm can never remain permanently trapped in a suboptimal region.</p>
+</div>
+<figure id="alg1" class="ltx_float ltx_float_algorithm ltx_framed ltx_framed_top">
+<figcaption class="ltx_caption"><span class="ltx_tag ltx_tag_float"><span class="ltx_text ltx_font_bold">Algorithm 1</span> </span> QPSO position update for particle <span id="alg1.m3" class="ltx_Math">i</span> at iteration <span id="alg1.m4" class="ltx_Math">t</span>.</figcaption>
+<div class="ltx_listing ltx_listing">
+<div id="alg1.l1" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">1:</span></span><span id="alg1.l1.m1" class="ltx_Math">\mathrm{pbest}_{i},\ \mathrm{gbest},\ \mathrm{mbest}_{w},\ x_{i}^{t},\ m_{i}^{%
+t},\ \beta</span>
+
+</div>
+<div id="alg1.l2" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">2:</span></span><span id="alg1.l2.m1" class="ltx_Math">\phi\leftarrow\mathrm{Uniform}(0,1)^{D}</span>
+
+</div>
+<div id="alg1.l3" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">3:</span></span><span id="alg1.l3.m1" class="ltx_Math">p_{i}\leftarrow\phi\odot\mathrm{pbest}_{i}+(1-\phi)\odot\mathrm{gbest}</span> <span class="ltx_text" style="float:right;"><span id="alg1.l3.m2" class="ltx_Math">\triangleright</span> Attractor
+</span>
+</div>
+<div id="alg1.l4" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">4:</span></span><span id="alg1.l4.m1" class="ltx_Math">u\leftarrow\mathrm{Uniform}(0.001,0.999)^{D}</span>
+
+</div>
+<div id="alg1.l5" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">5:</span></span><span id="alg1.l5.m1" class="ltx_Math">\delta_{i}\leftarrow\beta\,|\mathrm{mbest}_{w}-x_{i}^{t}|\odot\ln(1/u)</span> <span class="ltx_text" style="float:right;"><span id="alg1.l5.m2" class="ltx_Math">\triangleright</span> Quantum displacement
+</span>
+</div>
+<div id="alg1.l6" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">6:</span></span><span id="alg1.l6.m1" class="ltx_Math">s\leftarrow</span> sign drawn from randomness mode <span class="ltx_text" style="float:right;"><span id="alg1.l6.m2" class="ltx_Math">\triangleright</span> <span id="alg1.l6.m3" class="ltx_Math">+1</span> or <span id="alg1.l6.m4" class="ltx_Math">-1</span> per dimension
+</span>
+</div>
+<div id="alg1.l7" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">7:</span></span><span id="alg1.l7.m1" class="ltx_Math">x_{i}^{q}\leftarrow p_{i}+s\odot\delta_{i}</span> <span class="ltx_text" style="float:right;"><span id="alg1.l7.m2" class="ltx_Math">\triangleright</span> Quantum step
+</span>
+</div>
+<div id="alg1.l8" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">8:</span></span><span id="alg1.l8.m1" class="ltx_Math">m_{i}^{t+1}\leftarrow\gamma_{d}\,m_{i}^{t}+(1-\gamma_{d})(x_{i}^{q}-x_{i}^{t})</span> <span class="ltx_text" style="float:right;"><span id="alg1.l8.m2" class="ltx_Math">\triangleright</span> Momentum EMA, <span id="alg1.l8.m3" class="ltx_Math">\gamma_{d}=0.7</span>
+</span>
+</div>
+<div id="alg1.l9" class="ltx_listingline">
+<span class="ltx_tag ltx_tag_listingline"><span class="ltx_text" style="font-size:80%;">9:</span></span><span id="alg1.l9.m1" class="ltx_Math">x_{i}^{t+1}\leftarrow\mathrm{clip}\big{(}x_{i}^{q}+\gamma_{w}\,m_{i}^{t+1},\,x%
+_{\min},x_{\max}\big{)}</span> <span class="ltx_text" style="float:right;"><span id="alg1.l9.m2" class="ltx_Math">\triangleright</span> <span id="alg1.l9.m3" class="ltx_Math">\gamma_{w}=0.1</span>
+</span>
+</div>
+</div>
+</figure>
+<div id="S3.p3" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Quantum randomness modes.</span> Beyond the <em class="ltx_emph ltx_font_italic">math</em> mode (NumPy Mersenne Twister) used for the reported experiments, the framework implements <em class="ltx_emph ltx_font_italic">full</em> mode, in which every random quantity—cognitive and social weights, displacement magnitudes, and the tunnelling sign—is generated by Qiskit quantum circuits, and <em class="ltx_emph ltx_font_italic">hybrid</em> mode, in which only the binary tunnelling sign is drawn from a quantum circuit while continuous quantities remain classical. In full mode, two Hadamard-only circuits supply the cognitive and social weights as shot-averaged <span id="S3.p3.m1" class="ltx_Math">|1\rangle</span> frequencies, while a Hadamard gate followed by a parameterised <span id="S3.p3.m2" class="ltx_Math">RY(\beta\pi)</span> rotation supplies the tunnelling sign: a qubit initialised in <span id="S3.p3.m3" class="ltx_Math">|0\rangle</span> is passed through <span id="S3.p3.m4" class="ltx_Math">H</span> then <span id="S3.p3.m5" class="ltx_Math">RY(\theta)</span> with <span id="S3.p3.m6" class="ltx_Math">\theta=\beta\pi</span>, giving measurement probability</p>
+<table id="S3.E8" class="ltx_equation ltx_eqn_table">
+
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><span id="S3.E8.m1" class="ltx_Math">P(|1\rangle)=\sin^{2}(\beta\pi/2).</span></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(8)</span></td>
+</tr></tbody>
+</table>
+<p class="ltx_p">When <span id="S3.p3.m7" class="ltx_Math">\beta</span> is large (early exploration) <span id="S3.p3.m8" class="ltx_Math">P(|1\rangle)\approx 0.5</span>, an approximately unbiased coin flip; as <span id="S3.p3.m9" class="ltx_Math">\beta</span> decays toward 0.5, <span id="S3.p3.m10" class="ltx_Math">P(|1\rangle)\approx 0.15</span>, biasing the sign toward outward displacement and tightening the effective search radius. The split between full and hybrid modes is motivated by a granularity argument: shot-based quantum measurement yields values with granularity <span id="S3.p3.m11" class="ltx_Math">1/\text{shots}</span>—approximately 0.004 at the 256 shots used here—which is too coarse for continuous quantities that enter logarithms and products, but entirely appropriate for a binary decision with a <span id="S3.p3.m12" class="ltx_Math">\beta</span>-dependent bias. Because both circuit-based modes construct and simulate a circuit at every iteration, they incur roughly two orders of magnitude more wall-clock time than math mode; the main 24-configuration benchmark grid in Section 4 therefore uses math mode throughout. Section 5.4 reports a smaller, reduced-grid pilot that does execute all three modes end-to-end, to give an initial, honestly-scoped answer to the randomness-source question rather than leaving it entirely untested.</p>
+</div>
+<div id="S3.p4" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Software architecture.</span> The framework is a modular Python package (<span class="ltx_text ltx_font_typewriter">qpso_research</span>) with YAML-configured experiments, explicit seed control for reproducibility, and lazy Qiskit import so the classical path carries no quantum dependency.</p>
+</div>
+</section>
+<section id="S4" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">
+<span class="ltx_tag ltx_tag_section">4 </span>Experimental Setup</h2>
+
+<div id="S4.p1" class="ltx_para">
+<p class="ltx_p">Table <a href="#S4.T2" title="Table 2 ‣ 4 Experimental Setup ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">2</span></a> summarises the parameter configuration. Both algorithms use a swarm of 40 particles, 500 iterations, and are evaluated over 50 independent runs per benchmark–dimensionality combination, with dimensionalities <span id="S4.p1.m1" class="ltx_Math">n\in\{2,5,10,20\}</span> and a success threshold of <span id="S4.p1.m2" class="ltx_Math">10^{-6}</span>. Both algorithms are initialised with identical random seeds per run (paired design), isolating algorithmic differences as the sole source of performance divergence.</p>
+</div>
+<figure id="S4.T2" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Parameter</span></th>
+<td class="ltx_td ltx_align_center ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Classical PSO</span></td>
+<td class="ltx_td ltx_align_center ltx_border_tt"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t">
+<span class="ltx_text" style="font-size:90%;">Inertia / Contraction–expansion (</span><span id="S4.T2.m1" class="ltx_Math">\beta</span><span class="ltx_text" style="font-size:90%;">)</span>
+</th>
+<td class="ltx_td ltx_align_center ltx_border_t"><span id="S4.T2.m2" class="ltx_Math">0.9\to 0.4</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span id="S4.T2.m3" class="ltx_Math">1.0\to 0.5</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row">
+<span class="ltx_text" style="font-size:90%;">Cognitive / social coefficients (</span><span id="S4.T2.m4" class="ltx_Math">c_{1},c_{2}</span><span class="ltx_text" style="font-size:90%;">)</span>
+</th>
+<td class="ltx_td ltx_align_center"><span id="S4.T2.m5" class="ltx_Math">1.494</span></td>
+<td class="ltx_td ltx_align_center"><span id="S4.T2.m6" class="ltx_Math">1.494</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:90%;">Velocity clamping</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">20% of range</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:90%;">Quantum circuit shots</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">256</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_bb"><span class="ltx_text" style="font-size:90%;">Stagnation detection limit</span></th>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">20 iter.</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">20 iter.</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:90%;"><span class="ltx_tag ltx_tag_table">Table 2: </span>Parameter configuration for Classical PSO and QPSO.</figcaption>
+</figure>
+<div id="S4.p2" class="ltx_para">
+<p class="ltx_p">For statistical validation we use the non-parametric Wilcoxon signed-rank test <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib13" title="" class="ltx_ref">13</a>, <a href="#bib.bib12" title="" class="ltx_ref">12</a>]</cite>, applied independently to each benchmark–dimensionality combination at <span id="S4.p2.m1" class="ltx_Math">\alpha=0.05</span>. For the Rastrigin function, we additionally report a binary escape-rate analysis (fraction of runs reaching the global basin, <span id="S4.p2.m2" class="ltx_Math">f&lt;0.5</span>) compared via Fisher’s exact test, as this success-oriented metric better reflects escape ability than mean fitness on rugged landscapes. All experiments use NumPy, SciPy <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib14" title="" class="ltx_ref">14</a>]</cite>, and Matplotlib; Qiskit <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib15" title="" class="ltx_ref">15</a>]</cite> provides the circuit backend for the full and hybrid modes.</p>
+</div>
+</section>
+<section id="S5" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">
+<span class="ltx_tag ltx_tag_section">5 </span>Results and Discussion</h2>
+
+<div id="S5.p1" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Convergence analysis.</span> Figure <a href="#S5.F1" title="Figure 1 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">1</span></a> shows median convergence at <span id="S5.p1.m1" class="ltx_Math">n=10</span> across all six benchmarks. On the unimodal Sphere function, Classical PSO’s velocity-driven contraction reaches near machine precision (<span id="S5.p1.m2" class="ltx_Math">4.5\times 10^{-25}</span>) while QPSO’s probabilistic sampling retains a residual stochastic floor near <span id="S5.p1.m3" class="ltx_Math">10^{-12}</span>—the smooth, convex landscape favours exploitation-oriented dynamics. On Rastrigin, Rosenbrock, and Griewank, the two methods are closely matched in mean final fitness, though (as shown below) this conceals important differences in escape behaviour.</p>
+</div>
+<figure id="S5.F1" class="ltx_figure"><img src="figures/convergence_grid.png" id="S5.F1.g1" class="ltx_graphics ltx_centering ltx_img_landscape" width="568" height="353" alt="Refer to caption">
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 1: </span><span class="ltx_text" style="font-size:90%;">Median convergence trajectories (IQR shaded) over 50 runs, all six benchmarks at <span id="S5.F1.m2" class="ltx_Math">n=10</span>. Classical PSO reaches lower residuals on smoother landscapes; the two methods are closely matched on Rastrigin, Rosenbrock, and Griewank at this dimensionality.</span></figcaption>
+</figure>
+<div id="S5.p2" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Dimensional scaling.</span> Table <a href="#S5.T3" title="Table 3 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">3</span></a> reports mean final fitness across all configurations. The dominant pattern is a <em class="ltx_emph ltx_font_italic">dimensional crossover</em>: in low dimensions, Classical PSO drives fitness to near machine precision on Sphere, Ackley, and Rosenbrock, several orders of magnitude below QPSO’s stochastic floor. At <span id="S5.p2.m1" class="ltx_Math">n=20</span>, the ordering reverses on Sphere (<span id="S5.p2.m2" class="ltx_Math">5.9\times 10^{-12}</span> vs. <span id="S5.p2.m3" class="ltx_Math">2.6\times 10^{-9}</span>), Ackley (<span id="S5.p2.m4" class="ltx_Math">7.7\times 10^{-7}</span> vs. <span id="S5.p2.m5" class="ltx_Math">2.1\times 10^{-1}</span>, a five-order-of-magnitude gap), and Schwefel. This reflects a consistent mechanism: in high-dimensional spaces, Classical PSO’s velocity decays before adequate exploration, trapping the swarm in a suboptimal basin, whereas QPSO’s position update—centred on the weighted mean best—maintains exploratory reach deeper into the run.</p>
+</div>
+<figure id="S5.T3" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:70%;">Function</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:70%;">Algorithm</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T3.m1" class="ltx_Math">n=2</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T3.m2" class="ltx_Math">n=5</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T3.m3" class="ltx_Math">n=10</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T3.m4" class="ltx_Math">n=20</span></th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t"><span class="ltx_text" style="font-size:70%;">Sphere</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t"><span class="ltx_text" style="font-size:70%;">PSO</span></th>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">3.8e-60</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">1.1e-43</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">4.5e-25</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">2.6e-09</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">QPSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">6.6e-13</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.6e-12</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.6e-12</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">5.9e-12</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Rastrigin</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">PSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">0.0e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">5.8e-01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">5.5e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.1e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">QPSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.1e-11</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.0e-01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">5.2e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.1e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Rosenbrock</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">PSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.7e-17</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.6e-01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">4.0e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.5e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">QPSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.9e-10</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.4e-01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.9e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.8e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Ackley</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">PSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">4.4e-16</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.2e-15</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.3e-14</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.1e-01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">QPSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">5.5e-07</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">5.6e-12</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.8e-05</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">7.7e-07</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Griewank</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">PSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.8e-03</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.5e-02</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">9.0e-02</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.6e-02</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">QPSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">9.0e-04</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.4e-02</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">9.4e-02</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.9e-02</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Schwefel</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">PSO</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">7.1e+01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.2e+02</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">6.4e+02</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.2e+03</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row ltx_border_bb"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_bb"><span class="ltx_text" style="font-size:70%;">QPSO</span></th>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">7.1e+00</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">1.9e+02</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">6.3e+02</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">2.0e+03</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:70%;"><span class="ltx_tag ltx_tag_table">Table 3: </span>Mean final best fitness across 50 independent runs.</figcaption>
+</figure>
+<div id="S5.p3" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Statistical significance.</span> Table <a href="#S5.T4" title="Table 4 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">4</span></a> reports Wilcoxon test outcomes. Across the 24 benchmark–dimensionality combinations, Classical PSO wins 9 (concentrated at low dimensionality and on smoother landscapes), QPSO wins 6 (concentrated at <span id="S5.p3.m1" class="ltx_Math">n=20</span> and on Schwefel), and 9 show no significant difference. On Rosenbrock at <span id="S5.p3.m2" class="ltx_Math">n=20</span>, Classical PSO’s momentum-driven refinement yields a modestly but significantly lower residual (Figure <a href="#S5.F2" title="Figure 2 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">2</span></a>).</p>
+</div>
+<figure id="S5.F2" class="ltx_figure"><img src="figures/convergence_rosenbrock.png" id="S5.F2.g1" class="ltx_graphics ltx_centering ltx_img_landscape" width="371" height="237" alt="Refer to caption">
+<figcaption class="ltx_caption ltx_centering"><span class="ltx_tag ltx_tag_figure">Figure 2: </span><span class="ltx_text" style="font-size:90%;">Rosenbrock convergence at <span id="S5.F2.m2" class="ltx_Math">n=20</span>. After a shared rapid descent, Classical PSO settles at a modestly, significantly lower residual, reflecting its momentum-driven refinement along the valley floor.</span></figcaption>
+</figure>
+<figure id="S5.T4" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Function</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T4.m1" class="ltx_Math">n=2</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T4.m2" class="ltx_Math">n=5</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T4.m3" class="ltx_Math">n=10</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T4.m4" class="ltx_Math">n=20</span></th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t"><span class="ltx_text" style="font-size:90%;">Sphere</span></th>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:90%;">Rastrigin</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:90%;">Rosenbrock</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:90%;">Ackley</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">PSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:90%;">Griewank</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_bb"><span class="ltx_text" style="font-size:90%;">Schwefel</span></th>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">—</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">QPSO</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:90%;"><span class="ltx_tag ltx_tag_table">Table 4: </span>Wilcoxon signed-rank test outcomes (algorithm with significantly lower median fitness, <span id="S5.T4.m6" class="ltx_Math">\alpha=0.05</span>; — indicates no significant difference).</figcaption>
+</figure>
+<div id="S5.p4" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Escape behaviour.</span> The mean-fitness comparison understates QPSO’s behaviour on Rastrigin: while the Wilcoxon test shows no significant difference at any dimensionality, Table <a href="#S5.T5" title="Table 5 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">5</span></a> shows that at <span id="S5.p4.m1" class="ltx_Math">n=5</span>, QPSO escapes into the global basin in 41/50 runs versus 27/50 for Classical PSO (Fisher’s exact <span id="S5.p4.m2" class="ltx_Math">p=0.005</span>)—a direct empirical demonstration of the quantum-tunnelling analogy motivating QPSO. At <span id="S5.p4.m3" class="ltx_Math">n=2</span> the problem is trivial for both; at <span id="S5.p4.m4" class="ltx_Math">n\geq 10</span> the landscape defeats both methods within budget, leaving no separation to detect.</p>
+</div>
+<figure id="S5.T5" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Dimensionality</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:90%;">PSO (of 50)</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:90%;">QPSO (of 50)</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt">
+<span class="ltx_text" style="font-size:90%;">Fisher </span><span id="S5.T5.m1" class="ltx_Math">p</span>
+</th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t"><span id="S5.T5.m2" class="ltx_Math">n=2</span></th>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">50/50</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">50/50</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:90%;">1.000</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span id="S5.T5.m3" class="ltx_Math">n=5</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">27/50</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">41/50</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text ltx_font_bold" style="font-size:90%;">0.005</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span id="S5.T5.m4" class="ltx_Math">n=10</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">0/50</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">0/50</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:90%;">1.000</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_bb"><span id="S5.T5.m5" class="ltx_Math">n=20</span></th>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">0/50</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">0/50</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:90%;">1.000</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:90%;"><span class="ltx_tag ltx_tag_table">Table 5: </span>Rastrigin basin-escape rate (<span id="S5.T5.m7" class="ltx_Math">f&lt;0.5</span>).</figcaption>
+</figure>
+<div id="S5.p5" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Randomness-mode comparison (reduced-grid pilot).</span> The main grid above (Sections 4–5) uses QPSO’s mathematical randomness mode throughout, as Qiskit circuit simulation is roughly two orders of magnitude slower per iteration. To actually test, rather than merely posit, whether the randomness source affects QPSO’s behaviour, we ran a reduced pilot executing all three modes (math, hybrid, full) end-to-end via Qiskit’s AerSimulator: 3 benchmarks (Sphere, Rastrigin, Ackley), <span id="S5.p5.m1" class="ltx_Math">n\in\{5,10\}</span>, 20 independent paired-seed runs per configuration, with a reduced swarm size (10) and iteration budget (60) to keep simulation time tractable (roughly 1.3 ms per single-qubit circuit evaluation; the full pilot required several million circuit executions). Table <a href="#S5.T6" title="Table 6 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">6</span></a> reports mean final fitness; Table <a href="#S5.T7" title="Table 7 ‣ 5 Results and Discussion ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">7</span></a> reports the pairwise Wilcoxon outcomes.</p>
+</div>
+<figure id="S5.T6" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:70%;">Function</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:70%;">Mode</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T6.m1" class="ltx_Math">n=5</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span id="S5.T6.m2" class="ltx_Math">n=10</span></th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t"><span class="ltx_text" style="font-size:70%;">Sphere</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t"><span class="ltx_text" style="font-size:70%;">math</span></th>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">3.7e-04</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">1.3e-01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">hybrid</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.6e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.9e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">full</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.4e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.5e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Rastrigin</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">math</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">6.2e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">3.3e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">hybrid</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.9e+01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">6.9e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">full</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.8e+01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">6.8e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">Ackley</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">math</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.6e-01</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">2.6e+00</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row"><span class="ltx_text" style="font-size:70%;">hybrid</span></th>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">8.1e+00</span></td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">1.6e+01</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_th ltx_th_row ltx_border_bb"></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_bb"><span class="ltx_text" style="font-size:70%;">full</span></th>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">6.8e+00</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">1.6e+01</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:70%;"><span class="ltx_tag ltx_tag_table">Table 6: </span>Mean final fitness, reduced-grid randomness-mode pilot (20 runs/config).</figcaption>
+</figure>
+<figure id="S5.T7" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:70%;">Function</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_border_tt"><span id="S5.T7.m1" class="ltx_Math">n</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:70%;">math vs. hybrid</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:70%;">math vs. full</span></th>
+<th class="ltx_td ltx_align_center ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:70%;">hybrid vs. full</span></th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left ltx_border_t"><span class="ltx_text" style="font-size:70%;">Sphere</span></td>
+<td class="ltx_td ltx_align_left ltx_border_t"><span class="ltx_text" style="font-size:70%;">5</span></td>
+<td class="ltx_td ltx_align_center ltx_border_t">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m2" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center ltx_border_t">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m3" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center ltx_border_t"><span class="ltx_text" style="font-size:70%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">Sphere</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">10</span></td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m4" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m5" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">Rastrigin</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">5</span></td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m6" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m7" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">Rastrigin</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">10</span></td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m8" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m9" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">Ackley</span></td>
+<td class="ltx_td ltx_align_left"><span class="ltx_text" style="font-size:70%;">5</span></td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m10" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m11" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center"><span class="ltx_text" style="font-size:70%;">—</span></td>
+</tr>
+<tr class="ltx_tr">
+<td class="ltx_td ltx_align_left ltx_border_bb"><span class="ltx_text" style="font-size:70%;">Ackley</span></td>
+<td class="ltx_td ltx_align_left ltx_border_bb"><span class="ltx_text" style="font-size:70%;">10</span></td>
+<td class="ltx_td ltx_align_center ltx_border_bb">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m12" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center ltx_border_bb">
+<span class="ltx_text ltx_font_bold" style="font-size:70%;">math</span><span class="ltx_text" style="font-size:70%;"> (</span><span id="S5.T7.m13" class="ltx_Math">p&lt;.001</span><span class="ltx_text" style="font-size:70%;">)</span>
+</td>
+<td class="ltx_td ltx_align_center ltx_border_bb"><span class="ltx_text" style="font-size:70%;">—</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:70%;"><span class="ltx_tag ltx_tag_table">Table 7: </span>Wilcoxon outcomes, randomness-mode pilot (algorithm with significantly lower median fitness, <span id="S5.T7.m18" class="ltx_Math">\alpha=0.05</span>; — = not significant). A Friedman test confirms a significant difference among all three modes jointly in every configuration (<span id="S5.T7.m19" class="ltx_Math">p&lt;.001</span> in 5 of 6; <span id="S5.T7.m20" class="ltx_Math">p=.0001</span> on Rastrigin at <span id="S5.T7.m21" class="ltx_Math">n=5</span>).</figcaption>
+</figure>
+<div id="S5.p6" class="ltx_para">
+<p class="ltx_p">The result is unambiguous and consistent across every tested configuration: math mode significantly outperformed both circuit-based modes, while hybrid and full never differed significantly from each other. This is a genuine, if sobering, finding rather than the uniform or beneficial effect one might have hoped circuit-based randomness would provide, and it should not be over-generalised: the pilot’s drastically reduced swarm size and iteration budget (relative to the 40-particle, 500-iteration main grid) may disproportionately penalise the circuit-based modes if they require more iterations to stabilise, and the comparison was run on a classical simulator rather than physical quantum hardware. Within this explicitly reduced scope, however, the evidence does not support the hypothesis that quantum-circuit-sourced randomness improves QPSO’s optimisation behaviour; if anything, the added measurement granularity and circuit-specific bias in the tunnelling-sign distribution appear to be a measurable handicap at this budget. A full-scale replication across all 24 benchmark–dimensionality combinations, and on physical quantum hardware, remains important future work (Section 6).</p>
+</div>
+<div id="S5.p7" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Discussion.</span> Classical PSO and QPSO occupy complementary regions of the problem space, and the deciding factor is the balance between exploitation and sustained exploration demanded by the landscape and its dimensionality. Classical PSO excels when the search space is small or the landscape is smooth: its decaying-inertia velocity update contracts efficiently once a promising basin is located, achieving refinement to near machine precision on Sphere and low-dimensional Ackley and Rosenbrock. QPSO cannot match this precision, since its position update samples from a distribution whose width never vanishes, imposing a stochastic floor—on easy problems, the quantum-inspired mechanism offers no benefit and a measurable cost. QPSO’s strength—resistance to premature convergence, since each particle’s next position is drawn from a distribution centred on the weighted mean best rather than propelled by a decaying velocity—is largely irrelevant in low dimensions but becomes decisive at <span id="S5.p7.m1" class="ltx_Math">n=20</span>, where Classical PSO’s swarm collapses before covering the space. The stagnation-detection and scatter mechanism, shared by both algorithms, mitigates but does not eliminate this collapse; its velocity-perturbation recovery is evidently less effective in high-dimensional spaces than the intrinsic stochasticity of the QPSO update. These findings qualify the common expectation that quantum-behaved swarms uniformly dominate on multimodal problems: in our controlled, paired-seed comparison, the advantage is conditional, emerging specifically where premature convergence is the failure mode—i.e., at high dimensionality and on deceptive landscapes—rather than as a blanket property of multimodality itself.</p>
+</div>
+<div id="S5.p8" class="ltx_para">
+<p class="ltx_p"><span class="ltx_text ltx_font_bold">Limitations.</span> The main 24-configuration comparison uses QPSO’s mathematical randomness mode; the reduced-grid pilot above provides an initial, genuinely-executed comparison of all three modes, but covers only 3 of 6 benchmarks, 2 of 4 dimensionalities, a quarter of the swarm size, and an eighth of the iteration budget used in the main study, and relies on Qiskit’s classical simulator rather than physical quantum hardware, whose measurement statistics may differ at scale. The six-function benchmark suite, while spanning the major landscape categories, does not include the large-scale, rotated, and composite test suites used in CEC-style competitions <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib16" title="" class="ltx_ref">16</a>]</cite>, and parameter schedules were fixed from literature recommendations rather than tuned per benchmark.</p>
+</div>
+</section>
+<section id="S6" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">
+<span class="ltx_tag ltx_tag_section">6 </span>Conclusion</h2>
+
+<div id="S6.p1" class="ltx_para">
+<p class="ltx_p">This paper presented a rigorous empirical comparison of Classical PSO and QPSO across six benchmarks and four dimensionalities, using paired random seeds and non-parametric statistical validation. Neither algorithm is uniformly superior: their relative performance follows a dimensional crossover, with Classical PSO significantly more accurate on smooth, low-dimensional landscapes and QPSO significantly better at high dimensionality on Ackley, Sphere, and Schwefel—by up to five orders of magnitude on Ackley at <span id="S6.p1.m1" class="ltx_Math">n=20</span>. Aggregated over 24 comparisons, Classical PSO records 9 significant wins, QPSO records 6, and 9 show no difference; on Rastrigin, QPSO’s basin-escape rate is significantly higher at <span id="S6.p1.m2" class="ltx_Math">n=5</span> (<span id="S6.p1.m3" class="ltx_Math">p=0.005</span>), directly exhibiting the escape behaviour that motivates the quantum-inspired formulation.</p>
+</div>
+<div id="S6.p2" class="ltx_para">
+<p class="ltx_p">The released framework additionally implements full and hybrid Qiskit-based randomness modes. Rather than leaving the randomness-source question entirely untested, a reduced-grid pilot (Section 5.4) executed all three modes directly: math mode significantly outperformed both circuit-based modes in every one of 6 tested configurations, with hybrid and full statistically indistinguishable from each other—a preliminary but genuine finding, obtained at a necessarily reduced scale, that does not support a performance benefit from circuit-based randomness under this budget. A full-scale replication across all 24 benchmark–dimensionality combinations with the main study’s swarm size and iteration budget, a multi-variant ranking via the Friedman test at that scale, and execution on physical quantum hardware rather than a classical simulator, remain important future work. Other promising directions include expanding the benchmark suite to CEC-style rotated and composite landscapes <cite class="ltx_cite ltx_citemacro_cite">[<a href="#bib.bib16" title="" class="ltx_ref">16</a>]</cite>, adaptive contraction–expansion schedules or reinforcement-learning-based parameter controllers, coupling QPSO’s exploratory update with a precision-oriented local-refinement phase to recover the machine-precision convergence Classical PSO attains on easy landscapes, and extension to multi-objective optimisation for real-world engineering design tasks. The complete framework—source code, configurations, and analysis scripts—is available as an open-source Python package to support reproducible research in quantum-inspired optimisation.</p>
+</div>
+</section>
+<section id="Sx1" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">Code and Data Availability</h2>
+
+<div id="Sx1.p1" class="ltx_para">
+<p class="ltx_p">The complete implementation (<span class="ltx_text ltx_font_typewriter">qpso_research</span>), including both optimiser classes, the quantum engine, benchmark definitions, YAML experiment configurations, and the analysis and plotting scripts used to produce every table and figure in this paper, is released as an open-source Python package. Reproducing the full study requires only installing the package (<span class="ltx_text ltx_font_typewriter">pip install -e ".[dev]"</span>; add <span class="ltx_text ltx_font_typewriter">.[quantum]</span> to enable the Qiskit-based modes) and running the provided experiment runner against the publication configuration file; explicit seed control ensures that repeated executions reproduce identical results.</p>
+</div>
+</section>
+<section id="Sx2" class="ltx_section">
+<h2 class="ltx_title ltx_title_section">Acknowledgments</h2>
+
+<div id="Sx2.p1" class="ltx_para">
+<p class="ltx_p">The author is grateful to Professor Dr. Sergii Strelchuk for teaching the foundations of quantum computation that underpinned this research, and to Teaching Assistant Sean Harvey for his substantial help throughout the project. During the preparation of this work the author used Claude Sonnet 5 to accelerate and present background information and findings of this experiment; after using this tool, the author reviewed and edited the content as needed and takes full responsibility for the content of the publication.</p>
+</div>
+</section>
+<section id="A1" class="ltx_appendix">
+<h2 class="ltx_title ltx_title_appendix">
+<span class="ltx_tag ltx_tag_appendix">Appendix A </span>Benchmark Function Definitions</h2>
+
+<div id="A1.p1" class="ltx_para">
+<p class="ltx_p">Table <a href="#A1.T8" title="Table 8 ‣ Appendix A Benchmark Function Definitions ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">8</span></a> gives the closed-form definition of each benchmark function used in Section 4, for reference alongside the landscape summary in Table <a href="#S2.T1" title="Table 1 ‣ 2 Background ‣ Quantum-Behaved Particle Swarm Optimisation: A Comparative Study with Classical PSO" class="ltx_ref"><span class="ltx_text ltx_ref_tag">1</span></a>.</p>
+</div>
+<figure id="A1.T8" class="ltx_table">
+<table class="ltx_tabular ltx_centering ltx_guessed_headers ltx_align_middle">
+<thead class="ltx_thead">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_th_row ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Function</span></th>
+<th class="ltx_td ltx_align_left ltx_th ltx_th_column ltx_border_tt"><span class="ltx_text" style="font-size:90%;">Definition</span></th>
+</tr>
+</thead>
+<tbody class="ltx_tbody">
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_t" style="padding-bottom:4.0pt;"><span class="ltx_text" style="font-size:90%;">Sphere</span></th>
+<td class="ltx_td ltx_align_left ltx_border_t" style="padding-bottom:4.0pt;"><span id="A1.T8.m1" class="ltx_Math">f(x)=\sum_{i=1}^{n}x_{i}^{2}</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row" style="padding-bottom:4.0pt;"><span class="ltx_text" style="font-size:90%;">Rastrigin</span></th>
+<td class="ltx_td ltx_align_left" style="padding-bottom:4.0pt;"><span id="A1.T8.m2" class="ltx_Math">f(x)=10n+\sum_{i=1}^{n}\big{(}x_{i}^{2}-10\cos(2\pi x_{i})\big{)}</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row" style="padding-bottom:4.0pt;"><span class="ltx_text" style="font-size:90%;">Rosenbrock</span></th>
+<td class="ltx_td ltx_align_left" style="padding-bottom:4.0pt;"><span id="A1.T8.m3" class="ltx_Math">f(x)=\sum_{i=1}^{n-1}\big{(}100(x_{i+1}-x_{i}^{2})^{2}+(1-x_{i})^{2}\big{)}</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row" style="padding-bottom:4.0pt;"><span class="ltx_text" style="font-size:90%;">Ackley</span></th>
+<td class="ltx_td ltx_align_left" style="padding-bottom:4.0pt;"><span id="A1.T8.m4" class="ltx_Math">f(x)=-20\exp\!\big{(}-0.2\sqrt{\tfrac{1}{n}\sum x_{i}^{2}}\big{)}-\exp\!\big{(%
+}\tfrac{1}{n}\sum\cos(2\pi x_{i})\big{)}+20+e</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row" style="padding-bottom:4.0pt;"><span class="ltx_text" style="font-size:90%;">Griewank</span></th>
+<td class="ltx_td ltx_align_left" style="padding-bottom:4.0pt;"><span id="A1.T8.m5" class="ltx_Math">f(x)=\tfrac{1}{4000}\sum_{i=1}^{n}x_{i}^{2}-\prod_{i=1}^{n}\cos\!\big{(}\tfrac%
+{x_{i}}{\sqrt{i}}\big{)}+1</span></td>
+</tr>
+<tr class="ltx_tr">
+<th class="ltx_td ltx_align_left ltx_th ltx_th_row ltx_border_bb"><span class="ltx_text" style="font-size:90%;">Schwefel</span></th>
+<td class="ltx_td ltx_align_left ltx_border_bb"><span id="A1.T8.m6" class="ltx_Math">f(x)=418.9829\,n-\sum_{i=1}^{n}x_{i}\sin(\sqrt{|x_{i}|})</span></td>
+</tr>
+</tbody>
+</table>
+<figcaption class="ltx_caption ltx_centering" style="font-size:90%;"><span class="ltx_tag ltx_tag_table">Table 8: </span>Closed-form definitions of the six benchmark functions.</figcaption>
+</figure>
+</section>
+<section id="bib" class="ltx_bibliography">
+<h2 class="ltx_title ltx_title_bibliography" style="font-size:80%;">References</h2>
+
+<ul class="ltx_biblist">
+<li id="bib.bib1" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[1]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> J. Kennedy, R. Eberhart, “Particle swarm optimization,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Proc. ICNN’95</em><span class="ltx_text" style="font-size:80%;">, vol. 4, pp. 1942–1948, 1995.
+</span>
+</span>
+</li>
+<li id="bib.bib2" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[2]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> Y. Shi, R. Eberhart, “A modified particle swarm optimizer,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Proc. IEEE World Congress on Computational Intelligence</em><span class="ltx_text" style="font-size:80%;">, pp. 69–73, 1998.
+</span>
+</span>
+</li>
+<li id="bib.bib3" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[3]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> M. Clerc, J. Kennedy, “The particle swarm—explosion, stability, and convergence,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">IEEE Trans. Evol. Comput.</em><span class="ltx_text" style="font-size:80%;">, 6(1):58–73, 2002.
+</span>
+</span>
+</li>
+<li id="bib.bib4" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[4]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> J. Sun, B. Feng, W. Xu, “Particle swarm optimization with particles having quantum behavior,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Proc. CEC 2004</em><span class="ltx_text" style="font-size:80%;">, vol. 1, pp. 325–331, 2004.
+</span>
+</span>
+</li>
+<li id="bib.bib5" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[5]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> J. Sun, W. Fang, X. Wu, V. Palade, W. Xu, “Quantum-behaved particle swarm optimization: analysis of individual particle behavior and parameter selection,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Evol. Comput.</em><span class="ltx_text" style="font-size:80%;">, 20(3):349–393, 2012.
+</span>
+</span>
+</li>
+<li id="bib.bib6" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[6]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> M. Xi, J. Sun, W. Xu, “An improved quantum-behaved particle swarm optimization algorithm with weighted mean best position,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Appl. Math. Comput.</em><span class="ltx_text" style="font-size:80%;">, 205(2):751–759, 2008.
+</span>
+</span>
+</li>
+<li id="bib.bib7" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[7]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> L. A. Rastrigin, </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Systems of Extremal Control</em><span class="ltx_text" style="font-size:80%;">, Nauka, Moscow, 1974.
+</span>
+</span>
+</li>
+<li id="bib.bib8" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[8]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> H. H. Rosenbrock, “An automatic method for finding the greatest or least value of a function,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Comput. J.</em><span class="ltx_text" style="font-size:80%;">, 3(3):175–184, 1960.
+</span>
+</span>
+</li>
+<li id="bib.bib9" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[9]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> D. H. Ackley, </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">A Connectionist Machine for Genetic Hillclimbing</em><span class="ltx_text" style="font-size:80%;">, Kluwer Academic, 1987.
+</span>
+</span>
+</li>
+<li id="bib.bib10" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[10]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> A. O. Griewank, “Generalized descent for global optimization,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">J. Optim. Theory Appl.</em><span class="ltx_text" style="font-size:80%;">, 34(1):11–39, 1981.
+</span>
+</span>
+</li>
+<li id="bib.bib11" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[11]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> H.-P. Schwefel, </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Numerical Optimization of Computer Models</em><span class="ltx_text" style="font-size:80%;">, Wiley, 1981.
+</span>
+</span>
+</li>
+<li id="bib.bib12" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[12]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> J. Derrac, S. García, D. Molina, F. Herrera, “A practical tutorial on the use of nonparametric statistical tests,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Swarm Evol. Comput.</em><span class="ltx_text" style="font-size:80%;">, 1(1):3–18, 2011.
+</span>
+</span>
+</li>
+<li id="bib.bib13" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[13]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> F. Wilcoxon, “Individual comparisons by ranking methods,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Biometrics Bulletin</em><span class="ltx_text" style="font-size:80%;">, 1(6):80–83, 1945.
+</span>
+</span>
+</li>
+<li id="bib.bib14" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[14]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> P. Virtanen et al., “SciPy 1.0: fundamental algorithms for scientific computing in Python,” </span><em class="ltx_emph ltx_font_italic" style="font-size:80%;">Nature Methods</em><span class="ltx_text" style="font-size:80%;">, 17(3):261–272, 2020.
+</span>
+</span>
+</li>
+<li id="bib.bib15" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[15]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> Qiskit Contributors, “Qiskit: an open-source framework for quantum computing,” 2024.
+</span>
+</span>
+</li>
+<li id="bib.bib16" class="ltx_bibitem">
+<span class="ltx_tag ltx_tag_bibitem">[16]</span>
+<span class="ltx_bibblock"><span class="ltx_text" style="font-size:80%;"> J. J. Liang, B. Qu, P. N. Suganthan, “Problem definitions and evaluation criteria for the CEC 2014 special session,” Tech. Rep. 201311, Zhengzhou Univ. / Nanyang Technological Univ., 2013.
+</span>
+</span>
+</li>
+</ul>
+</section>
+</article>
+</div>
+<footer class="ltx_page_footer">
+<div class="ltx_page_logo">Generated  on Tue Oct  6 23:49:02 2026 by <a href="http://dlmf.nist.gov/LaTeXML/" class="ltx_LaTeXML_logo"><span style="letter-spacing:-0.2em; margin-right:0.1em;">L<span class="ltx_font_smallcaps" style="position:relative; bottom:2.2pt;">a</span>T<span class="ltx_font_smallcaps" style="font-size:120%;position:relative; bottom:-0.2ex;">e</span></span><span style="font-size:90%; position:relative; bottom:-0.2ex;">XML</span><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAOCAYAAAD5YeaVAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9wKExQZLWTEaOUAAAAddEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIFRoZSBHSU1Q72QlbgAAAdpJREFUKM9tkL+L2nAARz9fPZNCKFapUn8kyI0e4iRHSR1Kb8ng0lJw6FYHFwv2LwhOpcWxTjeUunYqOmqd6hEoRDhtDWdA8ApRYsSUCDHNt5ul13vz4w0vWCgUnnEc975arX6ORqN3VqtVZbfbTQC4uEHANM3jSqXymFI6yWazP2KxWAXAL9zCUa1Wy2tXVxheKA9YNoR8Pt+aTqe4FVVVvz05O6MBhqUIBGk8Hn8HAOVy+T+XLJfLS4ZhTiRJgqIoVBRFIoric47jPnmeB1mW/9rr9ZpSSn3Lsmir1fJZlqWlUonKsvwWwD8ymc/nXwVBeLjf7xEKhdBut9Hr9WgmkyGEkJwsy5eHG5vN5g0AKIoCAEgkEkin0wQAfN9/cXPdheu6P33fBwB4ngcAcByHJpPJl+fn54mD3Gg0NrquXxeLRQAAwzAYj8cwTZPwPH9/sVg8PXweDAauqqr2cDjEer1GJBLBZDJBs9mE4zjwfZ85lAGg2+06hmGgXq+j3+/DsixYlgVN03a9Xu8jgCNCyIegIAgx13Vfd7vdu+FweG8YRkjXdWy329+dTgeSJD3ieZ7RNO0VAXAPwDEAO5VKndi2fWrb9jWl9Esul6PZbDY9Go1OZ7PZ9z/lyuD3OozU2wAAAABJRU5ErkJggg==" alt="Mascot Sammy"></a>
+</div></footer>
+</div>
+</body>
+</html>
